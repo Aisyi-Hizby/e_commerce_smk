@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 
-import 'package:e_commerce/app/core/theme/app_colors.dart';
-import 'package:e_commerce/app/modules/home/controllers/home_controller.dart';
-import 'package:e_commerce/app/modules/home/views/components/product_card.dart';
-import 'package:e_commerce/app/modules/home/views/components/promo_banner.dart';
-import 'package:e_commerce/app/routes/app_pages.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../routes/app_pages.dart';
+import '../controllers/home_controller.dart';
+import 'components/product_card.dart';
+import 'components/promo_banner.dart';
 
 /// Halaman Utama (Katalog & Beranda KicksStore)
 /// Diperbarui di Sesi 02: Menggunakan Reaktivitas GetX (.obs & Obx)
@@ -101,7 +101,7 @@ class HomeView extends GetView<HomeController> {
                 onPressed: () => Get.toNamed(Routes.CART),
               ),
               Obx(() {
-                final count = controller.cartCount.value;
+                final count = controller.cartCount;
                 if (count == 0) return const SizedBox.shrink();
                 return Positioned(
                   right: 8,
@@ -365,21 +365,21 @@ class HomeView extends GetView<HomeController> {
                 itemBuilder: (context, index) {
                   final product = items[index];
                   return Obx(() {
-                    final isFav = controller.isFavorite(product['id']);
+                    final isFav = controller.isFavorite(product.id);
                     return ProductCard(
-                      title: product['name'],
-                      category: product['category'],
-                      price: currencyFormatter.format(product['price']),
-                      rating: (product['rating'] as num).toDouble(),
-                      imageUrl: product['imageUrl'],
+                      title: product.name,
+                      category: product.category,
+                      price: currencyFormatter.format(product.price),
+                      rating: product.rating,
+                      imageUrl: product.imageUrl,
                       isFavorite: isFav,
-                      // Sesi 02: Navigasi berargumen ke Detail Produk
+                      // Sesi 03: Navigasi berargumen ke Detail Produk via Model
                       onTap: () => controller.openDetail(product),
-                      // Sesi 02: Quick Add to Cart
+                      // Sesi 03: Quick Add to Cart via CartController
                       onAddToCart: () => controller.addToCart(product),
-                      // Sesi 02: Toggle Favorite
+                      // Sesi 03: Toggle Favorite
                       onToggleFavorite: () =>
-                          controller.toggleFavorite(product['id']),
+                          controller.toggleFavorite(product.id),
                     );
                   });
                 },
