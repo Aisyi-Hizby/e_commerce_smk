@@ -1,13 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
-import '../../../data/models/product_model.dart';
-import '../../cart/controllers/cart_controller.dart';
+import 'package:e_commerce/app/core/network/result.dart';
+import 'package:e_commerce/app/data/models/product_model.dart';
+import 'package:e_commerce/app/data/repository/product_repository.dart';
+import 'package:e_commerce/app/modules/cart/controllers/cart_controller.dart';
 
+/// ViewModel untuk Halaman Beranda (Sesi 05: Integrasi REST API & Clean Architecture)
 class HomeController extends GetxController {
-  // Sesi 03: Arsitektur MVVM - Controller sebagai ViewModel
+  // Sesi 05: Repository diinjeksi melalui Constructor Injection (IoC)
+  final ProductRepository _productRepository;
+
+  HomeController([ProductRepository? productRepository])
+    : _productRepository = productRepository ?? Get.find<ProductRepository>();
+
+  // State Reaktif Kategori & Wishlist
   final selectedCategory = 'Semua'.obs;
   final favoriteIds = <String>{}.obs;
+
+  // Sesi 05: State Reaktif Jaringan (Loading & Error State)
+  final isLoading = false.obs;
+  final errorMessage = ''.obs;
 
   // Daftar Kategori Sepatu
   final categories = <String>[
@@ -18,9 +31,12 @@ class HomeController extends GetxController {
     'Lifestyle',
   ];
 
-  // Sesi 03: Model Data Type-Safe (List<ProductModel>)
-  final products = <ProductModel>[
-    const ProductModel(
+  // Sesi 03 & 05: Model Data Type-Safe (List<ProductModel>)
+  final products = <ProductModel>[].obs;
+
+  // Fallback data lokal jika perangkat offline saat pertama kali aplikasi dibuka
+  static const List<ProductModel> _initialFallbackProducts = [
+    ProductModel(
       id: 'shoe-01',
       name: 'Nike Air Jordan 1 High OG',
       category: 'Basketball',
@@ -32,7 +48,7 @@ class HomeController extends GetxController {
       description:
           'Sepatu legendaris dengan material kulit premium, bantalan Air-Sole klasik, dan sol traksi karet tangguh untuk gaya hidup dan performa maksimal.',
     ),
-    const ProductModel(
+    ProductModel(
       id: 'shoe-02',
       name: 'Adidas Ultraboost Light 23',
       category: 'Running',
@@ -44,7 +60,7 @@ class HomeController extends GetxController {
       description:
           'Sepatu lari paling responsif dengan teknologi bantalan Light BOOST 30% lebih ringan, memberikan dorongan energi tanpa henti di setiap kilometer.',
     ),
-    const ProductModel(
+    ProductModel(
       id: 'shoe-03',
       name: 'Puma Slipstream Retro Bball',
       category: 'Casual',
@@ -56,7 +72,7 @@ class HomeController extends GetxController {
       description:
           'Kembalinya siluet basket era 80-an dengan pembaruan modern. Sentuhan suede lembut dan sol karet tebal yang sangat pas untuk outfit harian.',
     ),
-    const ProductModel(
+    ProductModel(
       id: 'shoe-04',
       name: 'New Balance 550 Vintage White',
       category: 'Casual',
@@ -68,7 +84,7 @@ class HomeController extends GetxController {
       description:
           'Desain clean dan vintage yang mendominasi tren streetwear dunia. Tahan lama, nyaman, dan mudah dipadukan dengan berbagai celana.',
     ),
-    const ProductModel(
+    ProductModel(
       id: 'shoe-05',
       name: 'Nike ZoomX Vaporfly Next% 3',
       category: 'Running',
@@ -80,7 +96,7 @@ class HomeController extends GetxController {
       description:
           'Sepatu marathon kompetisi tercepat dengan pelat serat karbon penuh dan busa ZoomX yang memberikan efisiensi tenaga superior di garis finis.',
     ),
-    const ProductModel(
+    ProductModel(
       id: 'shoe-06',
       name: 'Converse Chuck 70 Canvas High',
       category: 'Lifestyle',
@@ -92,7 +108,39 @@ class HomeController extends GetxController {
       description:
           'Versi premium dari siluet Chuck Taylor klasik dengan kanvas 12oz lebih tebal, jahitan samping vintage, dan insole OrthoLite super empuk.',
     ),
-  ].obs;
+  ];
+
+  @override
+  void onInit() {
+    super.onInit();
+    // Isi awal dengan data lokal agar UI langsung tampil cepat
+    products.assignAll(_initialFallbackProducts);
+    // Sesi 05: Fetch katalog terbaru dari REST API DummyJSON
+    fetchProducts();
+  }
+
+  /// Mengambil data katalog produk dari REST API dengan Result sealed class
+  Future<void> fetchProducts() async {
+    isLoading.value = true;
+    errorMessage.value = '';
+
+    final result = await _productRepository.fetchProducts();
+
+    switch (result) {
+      case Success(data: final remoteProducts):
+        if (remoteProducts.isNotEmpty) {
+          products.assignAll(remoteProducts);
+        }
+      case Failure(error: final error):
+        errorMessage.value = error;
+        // Tetap sediakan produk lokal jika server tidak dapat diakses
+        if (products.isEmpty) {
+          products.assignAll(_initialFallbackProducts);
+        }
+    }
+
+    isLoading.value = false;
+  }
 
   // Sesi 03: Mengambil CartController secara global melalui Dependency Injection
   CartController get cartController {
@@ -111,7 +159,11 @@ class HomeController extends GetxController {
       return products;
     }
     return products
-        .where((item) => item.category == selectedCategory.value)
+        .where(
+          (item) =>
+              item.category.toLowerCase() ==
+              selectedCategory.value.toLowerCase(),
+        )
         .toList();
   }
 
@@ -149,6 +201,6 @@ class HomeController extends GetxController {
 
   // Navigasi ke halaman detail produk berargumen ProductModel
   void openDetail(ProductModel product) {
-    Get.toNamed('/detail', arguments: product);
+    Get.toNamed('/detail', arguments: product.toMap());
   }
 }
