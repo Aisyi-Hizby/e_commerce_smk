@@ -9,20 +9,32 @@ import 'package:e_commerce/app/modules/cart/controllers/cart_controller.dart';
 /// ViewModel untuk Halaman Beranda (Sesi 05: Integrasi REST API & Clean Architecture)
 class HomeController extends GetxController {
   // Sesi 05: Repository diinjeksi melalui Constructor Injection (IoC)
+  // TUJUAN: Sumber tunggal data produk dan operasi wishlist.
   final ProductRepository _productRepository;
 
   HomeController([ProductRepository? productRepository])
     : _productRepository = productRepository ?? Get.find<ProductRepository>();
 
-  // State Reaktif Kategori & Wishlist
+  // TUJUAN: Menyimpan nama kategori aktif untuk filter produk ('Semua', 'Running', dsb.).
+  // MENGAPA .obs: Agar saat kategori diklik, GridView langsung terfilter secara reaktif.
+  // HUBUNGAN KE TAMPILAN: Mengatur warna filter chip dan item yang tampil di katalog.
   final selectedCategory = 'Semua'.obs;
+
+  // TUJUAN: Menyimpan himpunan ID produk yang difavoritkan pengguna secara offline.
+  // MENGAPA .obs: Agar ikon hati di ProductCard otomatis berwarna merah jika id terdaftar.
+  // HUBUNGAN KE TAMPILAN: Ikon favorit di ProductCard berubah antara Icons.favorite dan Icons.favorite_border.
   final favoriteIds = <String>{}.obs;
 
-  // Sesi 05: State Reaktif Jaringan (Loading & Error State)
+  // TUJUAN: Menandai apakah sedang berlangsung request data ke server API.
+  // MENGAPA .obs: Untuk mengontrol rendering antara Shimmer Loading dan katalog produk asli.
+  // HUBUNGAN KE TAMPILAN: Jika true, tampilkan ProductGridShimmer; jika false, tampilkan GridView produk.
   final isLoading = false.obs;
+
+  // TUJUAN: Menyimpan pesan error jika pengambilan data gagal total.
+  // MENGAPA .obs: Agar pesan error bisa ditampilkan ke pengguna jika tidak ada cache lokal.
   final errorMessage = ''.obs;
 
-  // Daftar Kategori Sepatu
+  // TUJUAN: Daftar filter kategori horizontal di bawah banner promo.
   final categories = <String>[
     'Semua',
     'Running',
@@ -31,7 +43,8 @@ class HomeController extends GetxController {
     'Lifestyle',
   ];
 
-  // Sesi 03 & 05: Model Data Type-Safe (List<ProductModel>)
+  // TUJUAN: Menyimpan seluruh katalog produk sepatu yang berhasil dimuat dari API atau cache Hive.
+  // MENGAPA .obs: Agar antarmuka beranda ter-render ulang saat data produk tiba.
   final products = <ProductModel>[].obs;
 
   // Fallback data lokal jika perangkat offline saat pertama kali aplikasi dibuka
@@ -110,16 +123,22 @@ class HomeController extends GetxController {
     ),
   ];
 
+  // PEMICU: Dipanggil otomatis oleh GetX saat controller pertama kali diinisialisasi.
+  // ALUR: Sinkronkan data favorit awal dari database Hive, isi fallback data lokal, dan lakukan fetchProducts().
   @override
   void onInit() {
     super.onInit();
+    // Sesi 07: Sinkronisasi data favorit dari database offline Hive CE
+    favoriteIds.assignAll(_productRepository.getWishlist().map((e) => e.id));
     // Isi awal dengan data lokal agar UI langsung tampil cepat
     products.assignAll(_initialFallbackProducts);
-    // Sesi 05: Fetch katalog terbaru dari REST API DummyJSON
+    // Sesi 05 & 07: Fetch katalog terbaru (dengan fallback offline caching)
     fetchProducts();
   }
 
   /// Mengambil data katalog produk dari REST API dengan Result sealed class
+  // PEMICU: Dipanggil saat onInit() atau saat pengguna melakukan pull-to-refresh.
+  // ALUR: Mengaktifkan status loading, memanggil _productRepository.fetchProducts(), menangani Success/Failure.
   Future<void> fetchProducts() async {
     isLoading.value = true;
     errorMessage.value = '';
@@ -177,11 +196,15 @@ class HomeController extends GetxController {
     cartController.addItem(product);
   }
 
-  // Toggle status favorit
-  void toggleFavorite(String productId) {
-    if (favoriteIds.contains(productId)) {
-      favoriteIds.remove(productId);
-    } else {
+  // Sesi 07: Toggle status favorit dan simpan secara persisten ke database Hive CE
+  // PEMICU: Ikon hati pada kartu produk diklik oleh pengguna.
+  // ALUR: Cari produk berdasarkan id, panggil _productRepository.toggleWishlist, update state favoriteIds, tampilkan feedback snackbar.
+  Future<void> toggleFavorite(String productId) async {
+    final product = products.firstWhereOrNull((p) => p.id == productId);
+    if (product == null) return;
+
+    final isNowFav = await _productRepository.toggleWishlist(product);
+    if (isNowFav) {
       favoriteIds.add(productId);
       Get.snackbar(
         'Disimpan ke Wishlist',
@@ -194,6 +217,8 @@ class HomeController extends GetxController {
         duration: const Duration(seconds: 2),
         icon: const Icon(Icons.favorite, color: Colors.white),
       );
+    } else {
+      favoriteIds.remove(productId);
     }
   }
 

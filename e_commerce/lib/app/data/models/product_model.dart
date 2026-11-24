@@ -1,15 +1,47 @@
+import 'package:hive_ce/hive.dart';
 import 'package:intl/intl.dart';
 
-/// Model Data Produk Sepatu (Type-Safe Entity)
+part 'product_model.g.dart';
+
+/// Model Data Produk Sepatu (Type-Safe Entity & Hive CE Object)
+// TUJUAN: Anotasi @HiveType mendefinisikan class ini sebagai entitas yang bisa diserialisasi ke Hive CE.
+// NILAI typeId: 0 adalah nomor registrasi unik di Hive (jangan tertukar dengan model lain).
+@HiveType(typeId: 0)
 class ProductModel {
+  // TUJUAN: ID unik produk untuk primary key di Hive Box dan identifikasi navigasi.
+  @HiveField(0)
   final String id;
+
+  // TUJUAN: Nama model sepatu (contoh: 'Nike Air Jordan 1 High OG').
+  @HiveField(1)
   final String name;
+
+  // TUJUAN: Kategori produk untuk penyaringan/filter di HomeView (contoh: 'Basketball', 'Running').
+  @HiveField(2)
   final String category;
+
+  // TUJUAN: Harga produk dalam integer Rupiah (tanpa desimal).
+  @HiveField(3)
   final int price;
+
+  // TUJUAN: Nilai ulasan pembeli (skala 0.0 - 5.0) untuk badge bintang di kartu produk.
+  @HiveField(4)
   final double rating;
+
+  // TUJUAN: Total ulasan yang diterima produk untuk meyakinkan pembeli.
+  @HiveField(5)
   final int reviewCount;
+
+  // TUJUAN: URL foto sepatu di internet (Unsplash / CDN DummyJSON).
+  @HiveField(6)
   final String imageUrl;
+
+  // TUJUAN: Uraian spesifikasi material dan kenyamanan sepatu di halaman detail.
+  @HiveField(7)
   final String description;
+
+  // TUJUAN: Penanda status apakah produk difavoritkan oleh pengguna.
+  @HiveField(8)
   final bool isFavorite;
 
   const ProductModel({
@@ -25,6 +57,8 @@ class ProductModel {
   });
 
   /// Format harga ke mata uang Rupiah
+  // PEMICU: Dipanggil saat widget Text ingin menampilkan harga format Indonesia (Rp 2.499.000).
+  // ALUR: Menggunakan pustaka NumberFormat dari package intl dengan locale id_ID.
   String get formattedPrice {
     final formatter = NumberFormat.currency(
       locale: 'id_ID',
@@ -35,6 +69,8 @@ class ProductModel {
   }
 
   /// Membuat salinan objek dengan modifikasi parsial (Immutable state update)
+  // PEMICU: Dipanggil saat memperbarui status isFavorite tanpa mengubah properti lainnya.
+  // ALUR: Mengembalikan instance ProductModel baru dengan nilai parameter yang ditimpa.
   ProductModel copyWith({
     String? id,
     String? name,
@@ -60,6 +96,7 @@ class ProductModel {
   }
 
   /// Konversi dari Map / JSON internal
+  // PEMICU: Mengonversi data Map lokal ke objek ProductModel type-safe.
   factory ProductModel.fromMap(Map<String, dynamic> map) {
     return ProductModel(
       id: map['id'] as String? ?? '',
@@ -75,6 +112,8 @@ class ProductModel {
   }
 
   /// Factory deserialisasi defensif dari JSON respons REST API (Sesi 05: DummyJSON atau API eksternal)
+  // PEMICU: Dipanggil saat menerima payload JSON dari DioClient.
+  // ALUR: Melakukan parsing nilai aman dengan fallback default untuk mencegah crash null-pointer.
   factory ProductModel.fromJson(Map<String, dynamic> json) {
     final rawId = json['id'];
     final id = rawId != null
@@ -128,6 +167,7 @@ class ProductModel {
   }
 
   /// Konversi ke Map
+  // PEMICU: Dipanggil saat mengirim argumen navigasi Get.toNamed('/detail', arguments: product.toMap()).
   Map<String, dynamic> toMap() {
     return {
       'id': id,
