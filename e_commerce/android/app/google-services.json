@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "248753804460",
+    "project_id": "hizby-projecyt",
+    "storage_bucket": "hizby-projecyt.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:248753804460:android:03b554b5d8e35a4280fb09",
+        "android_client_info": {
+          "package_name": "com.ecommerce.e_commerce"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "248753804460-4no5p5a6i8g8a5nqpbp5jn65dr5vq8nh.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDClKdzBkUZ5dXtkCkUG9eTugKpqMCag98"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "248753804460-4no5p5a6i8g8a5nqpbp5jn65dr5vq8nh.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

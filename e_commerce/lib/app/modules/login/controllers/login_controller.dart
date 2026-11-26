@@ -10,35 +10,43 @@ class LoginController extends GetxController {
   // GlobalKey untuk memvalidasi seluruh TextFormField dalam Form
   final formKey = GlobalKey<FormState>();
 
-  // TextEditingController untuk menangkap input teks siswa
+  // TextEditingController untuk menangkap teks input
   late final TextEditingController emailController;
   late final TextEditingController passwordController;
 
-  // State Reaktif GetX untuk visibilitas kata sandi, status loading, dan Remember Me
+  // State Reaktif GetX untuk UI interaktif
   final isPasswordHidden = true.obs;
+  final rememberMe = true.obs;
   final isLoading = false.obs;
-  final rememberMe = false.obs;
 
   @override
   void onInit() {
     super.onInit();
     emailController = TextEditingController();
     passwordController = TextEditingController();
+
+    // Sesi 09: Jika pengguna sudah dalam status login aktif, arahkan kembali ke Beranda
+    if (Get.isRegistered<AuthService>() && AuthService.to.isLoggedIn.value) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Get.offAllNamed(Routes.HOME);
+      });
+    }
   }
 
   @override
   void onClose() {
+    // Edukasi SMK: Selalu dispose controller input untuk mencegah kebocoran memori (memory leak)
     emailController.dispose();
     passwordController.dispose();
     super.onClose();
   }
 
-  // Toggle visibilitas kata sandi (Mata Terbuka / Tertutup)
+  // Toggle visibilitas kata sandi (lihat / sembunyikan)
   void togglePasswordVisibility() {
     isPasswordHidden.value = !isPasswordHidden.value;
   }
 
-  // Toggle checkbox "Ingat Saya"
+  // Toggle checkbox Ingat Saya
   void toggleRememberMe(bool? value) {
     rememberMe.value = value ?? false;
   }
@@ -75,10 +83,11 @@ class LoginController extends GetxController {
       return;
     }
 
+    // 2. Aktifkan indikator loading
     isLoading.value = true;
 
     try {
-      // Sesi 08: Simpan status login ke AuthService
+      // Sesi 08 & 09: Simpan status login ke AuthService via Firebase Auth
       if (Get.isRegistered<AuthService>()) {
         await AuthService.to.login(
           emailController.text.trim(),
@@ -104,13 +113,28 @@ class LoginController extends GetxController {
       String? returnRoute;
       if (Get.isRegistered<AuthService>()) {
         returnRoute = AuthService.to.redirectRoute;
-        AuthService.to.redirectRoute = null; // Reset rute setelah dibaca
+        AuthService.to.redirectRoute = null;
       }
 
       if (returnRoute != null && returnRoute.isNotEmpty) {
         Get.offNamed(returnRoute);
       } else {
         Get.offAllNamed(Routes.HOME);
+      }
+    } catch (e) {
+      if (!Get.testMode && Get.overlayContext != null) {
+        final errorMessage = AuthService.mapFirebaseAuthError(e);
+        Get.snackbar(
+          'Gagal Masuk',
+          errorMessage,
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: AppColors.error,
+          colorText: Colors.white,
+          margin: const EdgeInsets.all(16),
+          borderRadius: 12,
+          duration: const Duration(seconds: 3),
+          icon: const Icon(Icons.error_outline, color: Colors.white),
+        );
       }
     } finally {
       isLoading.value = false;

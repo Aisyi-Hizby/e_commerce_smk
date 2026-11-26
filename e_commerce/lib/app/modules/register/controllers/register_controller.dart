@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import 'package:e_commerce/app/core/services/auth_service.dart';
 import 'package:e_commerce/app/core/theme/app_colors.dart';
+import 'package:e_commerce/app/modules/login/controllers/login_controller.dart';
+import 'package:e_commerce/app/routes/app_pages.dart';
 
-/// Controller Manajemen Form Registrasi (Sesi 04: Form Handling & Validasi Input)
+/// Controller Manajemen Form Registrasi (Sesi 04 & 09: Form Handling, Validasi & Firebase Auth)
 class RegisterController extends GetxController {
   // GlobalKey untuk validasi form pendaftaran akun
   final formKey = GlobalKey<FormState>();
@@ -95,10 +98,10 @@ class RegisterController extends GetxController {
     return null;
   }
 
-  // Aksi Pendaftaran Akun Baru
+  // Aksi Pendaftaran Akun Baru via Firebase Auth
   Future<void> register() async {
     // 1. Jalankan validasi seluruh field input
-    if (!formKey.currentState!.validate()) {
+    if (formKey.currentState != null && !formKey.currentState!.validate()) {
       return;
     }
 
@@ -106,23 +109,97 @@ class RegisterController extends GetxController {
     isLoading.value = true;
 
     try {
-      // Simulasi delay request jaringan (akan digantikan Firebase Auth di Sesi 09)
-      await Future.delayed(const Duration(milliseconds: 1200));
+      // Simpan nilai nama & email sebelum controller berpotensi ter-dispose saat navigasi
+      final registeredName = nameController.text.trim();
+      final registeredEmail = emailController.text.trim();
 
-      Get.snackbar(
-        'Pendaftaran Berhasil 🎉',
-        'Akun untuk ${nameController.text.trim()} berhasil dibuat! Silakan masuk.',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: AppColors.success,
-        colorText: Colors.white,
-        margin: const EdgeInsets.all(16),
-        borderRadius: 12,
-        duration: const Duration(seconds: 3),
-        icon: const Icon(Icons.check_circle_outline, color: Colors.white),
-      );
+      // Sesi 09: Registrasi akun baru menggunakan Firebase Authentication
+      if (Get.isRegistered<AuthService>()) {
+        await AuthService.to.register(registeredEmail, passwordController.text);
+      }
 
-      // Kembali ke halaman Login
-      Get.back();
+      // Sesi 08 & 09: Periksa apakah pendaftaran dipicu oleh rute terproteksi (misal: /checkout)
+      String? returnRoute;
+      if (Get.isRegistered<AuthService>()) {
+        returnRoute = AuthService.to.redirectRoute;
+        AuthService.to.redirectRoute = null;
+      }
+
+      if (returnRoute != null && returnRoute.isNotEmpty) {
+        // KASUS 1: Pengguna mendaftar saat proses checkout (rute dicegat)
+        // Pertahankan status login Firebase Auth, tutup form Login & Register, dan arahkan langsung ke checkout!
+        Get.until(
+          (route) =>
+              route.isFirst ||
+              (route.settings.name != Routes.LOGIN &&
+                  route.settings.name != Routes.REGISTER),
+        );
+        Get.toNamed(returnRoute);
+
+        // Munculkan snackbar sukses melanjutkan ke checkout
+        if (!Get.testMode && Get.overlayContext != null) {
+          Get.snackbar(
+            'Pendaftaran Berhasil 🎉',
+            'Akun untuk $registeredName berhasil dibuat! Melanjutkan ke proses pemesanan...',
+            snackPosition: SnackPosition.BOTTOM,
+            backgroundColor: AppColors.success,
+            colorText: Colors.white,
+            margin: const EdgeInsets.all(16),
+            borderRadius: 12,
+            duration: const Duration(seconds: 4),
+            icon: const Icon(Icons.check_circle_outline, color: Colors.white),
+          );
+        }
+      } else {
+        // KASUS 2: Pendaftaran biasa (bukan dari checkout)
+        // Sesuai alur belajar SMK, kembalikan pengguna ke halaman Login.
+        // Lakukan logout sementara agar pengguna mempraktikkan proses login mandiri.
+        if (Get.isRegistered<AuthService>()) {
+          await AuthService.to.logout();
+        }
+
+        // Isi otomatis field email di form Login jika LoginController aktif di memori
+        if (Get.isRegistered<LoginController>()) {
+          Get.find<LoginController>().emailController.text = registeredEmail;
+        }
+
+        // Kembali ke halaman Login terlebih dahulu sebelum memunculkan notifikasi
+        if (Get.context != null && Navigator.canPop(Get.context!)) {
+          Get.back();
+        } else {
+          Get.offNamed(Routes.LOGIN);
+        }
+
+        // Munculkan snackbar sukses di atas halaman Login
+        if (!Get.testMode && Get.overlayContext != null) {
+          Get.snackbar(
+            'Pendaftaran Berhasil 🎉',
+            'Akun untuk $registeredName berhasil dibuat! Silakan masuk dengan kata sandi Anda.',
+            snackPosition: SnackPosition.BOTTOM,
+            backgroundColor: AppColors.success,
+            colorText: Colors.white,
+            margin: const EdgeInsets.all(16),
+            borderRadius: 12,
+            duration: const Duration(seconds: 4),
+            icon: const Icon(Icons.check_circle_outline, color: Colors.white),
+          );
+        }
+      }
+    } catch (e) {
+      if (!Get.testMode && Get.overlayContext != null) {
+        final errorMessage = AuthService.mapFirebaseAuthError(e);
+        Get.snackbar(
+          'Gagal Mendaftar',
+          errorMessage,
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: AppColors.error,
+          colorText: Colors.white,
+          margin: const EdgeInsets.all(16),
+          borderRadius: 12,
+          duration: const Duration(seconds: 3),
+          icon: const Icon(Icons.error_outline, color: Colors.white),
+        );
+      }
     } finally {
       isLoading.value = false;
     }
